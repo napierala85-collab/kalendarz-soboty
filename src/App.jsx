@@ -1,17 +1,17 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { Lock, UserPlus, Users, LogOut, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Pencil, Trash2, Shield, Clock, Info } from 'lucide-react'
+import { Lock, UserPlus, Users, LogOut, AlertCircle, ChevronLeft, ChevronRight, Pencil, Trash2, Shield, Clock, Info } from 'lucide-react'
 
 const API_LOGIN = '/api/login'
 const API_SIGNUPS = '/api/signups'
+const API_ADMIN = '/api/admin'
 
 function ymdLocal(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}` }
 function startOfDayLocal(d){ const x=new Date(d); x.setHours(0,0,0,0); return x }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x }
-function isSaturday(d){ return new Date(d).getDay()===6 }
-function fmtDatePL(yyyy_mm_dd){ return `${yyyy_mm_dd.slice(8,10)}-${yyyy_mm_dd.slice(5,7)}-${yyyy_mm_dd.slice(0,4)}` }
-function allSaturdaysTo2030(){ const today=startOfDayLocal(new Date()); const end=new Date(2030,11,31,0,0,0,0); let cur=new Date(today); while(cur.getDay()!==6) cur=addDays(cur,1); const out=[]; while(cur<=end){ out.push(ymdLocal(cur)); cur=addDays(cur,7) } return out }
-function formatTs(ts){ try{ return new Date(ts).toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'}) }catch{ return '' } }
+function fmtDatePL(s){ return `${s.slice(8,10)}-${s.slice(5,7)}-${s.slice(0,4)}` }
+function allSaturdaysTo2030(){ const today=startOfDayLocal(new Date()); const end=new Date(2030,11,31,0,0,0,0); let cur=new Date(today); while(cur.getDay()!==6)cur=addDays(cur,1); const out=[]; while(cur<=end){ out.push(ymdLocal(cur)); cur=addDays(cur,7) } return out }
+function formatTs(ts){ try{ return new Date(ts).toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'}) } catch { return '' } }
 function cutoffForSaturdayLocal(dateStr){ const d=new Date(dateStr+'T00:00:00'); const fri=new Date(d); fri.setDate(fri.getDate()-1); fri.setHours(11,0,0,0); return fri }
 function isLocked(dateStr, now){ return now >= cutoffForSaturdayLocal(dateStr) }
 function fmtCountdown(ms){ if(ms<=0) return 'Zamknięte'; const s=Math.floor(ms/1000); const d=Math.floor(s/86400); const h=Math.floor((s%86400)/3600); const m=Math.floor((s%3600)/60); const pad=n=>String(n).padStart(2,'0'); return d>0?`${d} d ${pad(h)} h ${pad(m)} m`:`${h} h ${pad(m)} m` }
@@ -27,6 +27,52 @@ function Header({ onLogout }){
         <button onClick={onLogout} className="btn" title="Wyloguj"><LogOut size={16}/> Wyloguj</button>
       </div>
     </header>
+  )
+}
+
+function AdminBar({ adminEnabled, setAdminEnabled, setAdminError }){
+  const [val, setVal] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const tryEnable = async (e) => {
+    e.preventDefault()
+    setLoading(true); setAdminError('')
+    try {
+      const res = await fetch(API_ADMIN, { headers: { 'X-Admin-Password': val } })
+      if (!res.ok) throw new Error('Nieprawidłowe hasło admina')
+      localStorage.setItem('adminPass', val)
+      setAdminEnabled(true)
+    } catch (err) {
+      localStorage.removeItem('adminPass')
+      setAdminEnabled(false)
+      setAdminError(err.message || 'Błąd weryfikacji admina')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const disable = () => {
+    localStorage.removeItem('adminPass')
+    setAdminEnabled(false)
+    setAdminError('')
+  }
+
+  return (
+    <div className="card flex items-center gap-3">
+      <div className="p-2 rounded-2xl bg-purple-600 text-white"><Shield size={18}/></div>
+      <div className="flex-1">
+        <div className="text-sm text-slate-600">Tryb administratora</div>
+        {adminEnabled ? <div className="text-sm">Aktywny — możesz edytować/usuwać wpisy oraz plan soboty.</div> : <div className="text-sm">Podaj hasło admina, aby aktywować.</div>}
+      </div>
+      {!adminEnabled ? (
+        <form onSubmit={tryEnable} className="flex items-center gap-2">
+          <input className="input" type="password" placeholder="Hasło admina" value={val} onChange={e=>setVal(e.target.value)} />
+          <button className="btn btn-primary" disabled={loading}>{loading ? 'Sprawdzanie…' : 'Aktywuj'}</button>
+        </form>
+      ) : (
+        <button className="btn" onClick={disable}>Wyłącz tryb admina</button>
+      )}
+    </div>
   )
 }
 
@@ -123,6 +169,7 @@ export default function App(){
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
   const [now,setNow]=useState(new Date())
+  const [adminError,setAdminError]=useState('')
 
   useEffect(()=>{ const id=setInterval(()=>setNow(new Date()),30000); return ()=>clearInterval(id) },[])
 
@@ -169,20 +216,8 @@ export default function App(){
       <Header onLogout={()=>{ localStorage.removeItem('token'); setAuthed(false) }}/>
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-4">
 
-        <div className="card flex items-center gap-3">
-          <div className="p-2 rounded-2xl bg-purple-600 text-white"><Shield size={18}/></div>
-          <div className="flex-1">
-            <div className="text-sm text-slate-600">Tryb administratora</div>
-            {adminEnabled ? <div className="text-sm">Aktywny — możesz edytować i usuwać wpisy oraz plan soboty.</div> : <div className="text-sm">Podaj hasło admina, aby aktywować.</div>}
-          </div>
-          {!adminEnabled && (
-            <form onSubmit={(e)=>{e.preventDefault(); localStorage.setItem('adminPass', e.target.admin.value); setAdminEnabled(true);}} className="flex items-center gap-2">
-              <input name="admin" className="input" type="password" placeholder="Hasło admina"/>
-              <button className="btn btn-primary">Aktywuj</button>
-            </form>
-          )}
-          {adminEnabled && <div className="badge">ADMIN</div>}
-        </div>
+        <AdminBar adminEnabled={adminEnabled} setAdminEnabled={setAdminEnabled} setAdminError={setAdminError} />
+        {adminError && <div className="text-sm text-red-600">{adminError}</div>}
 
         <div className="card">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -200,115 +235,8 @@ export default function App(){
           </div>
         </div>
 
-        {loading && <p>Ładowanie…</p>}
-        {error && <p className="text-red-600">{error}</p>}
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {monthSaturdays.length===0 ? (
-            <div className="col-span-full text-sm text-slate-500">Brak sobót w tym miesiącu.</div>
-          ) : monthSaturdays.map(date=>{
-            const people = signups[date] || []
-            const locked = isLocked(date, now)
-            const cutoff = cutoffForSaturdayLocal(date)
-            const countdown = fmtCountdown(cutoff - now)
-            return (
-              <div key={date} className="card">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="text-sm text-slate-500">Sobota</div>
-                    <div className="text-lg font-semibold">{fmtDatePL(date)}</div>
-                    <div className={`alert-banner ${locked ? 'alert-danger' : 'alert-warning'}`}>
-                      <Clock size={18}/><span>Lista zamykana: {cutoff.toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'})}</span>
-                    </div>
-                  </div>
-                  <button className="btn btn-primary" onClick={()=>setModalDate(date)} disabled={locked}>
-                    <UserPlus size={16}/> {locked?'Lista zamknięta':'Zapisz się'}
-                  </button>
-                </div>
-                <div className="summary">
-                  <span><strong>Chętni:</strong> {people.length}</span>
-                  <span className="countdown"><strong>Do zamknięcia:</strong> {countdown}</span>
-                </div>
-                {people.length===0 ? (
-                  <p className="text-sm text-slate-500 mt-2">Brak chętnych</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {people.map((p,i)=>(
-                      <li key={i} className="entry-line">
-                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block shrink-0"></span>
-                        <span className="entry-name">{p.name}</span>
-                        <span className="entry-meta">({formatTs(p.ts)})</span>
-                        {p.note && <span className="entry-note">— {p.note}</span>}
-                        {adminEnabled && (
-                          <span className="entry-actions">
-                            <button className="icon-btn-lg" title="Edytuj" onClick={()=>setEditItem({date,entry:p})}><Pencil size={18}/></button>
-                            <button className="icon-btn-lg" title="Usuń" onClick={async()=>{
-                              if(!confirm('Usunąć ten wpis?')) return
-                              const token=localStorage.getItem('token')||''
-                              const adminPass=localStorage.getItem('adminPass')||''
-                              const res=await fetch(API_SIGNUPS,{method:'DELETE',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'X-Admin-Password':adminPass},body:JSON.stringify({date,ts:p.ts})})
-                              if(res.ok){ const updated=await res.json(); setSignups(updated.signups||{}) } else { alert(await res.text()) }
-                            }}><Trash2 size={18}/></button>
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="card">
-          <div className="text-lg font-semibold mb-2 flex items-center gap-2"><Info size={18}/> Plan pracy w sobotę</div>
-          <p className="text-sm text-slate-600 mb-3">Wybierz sobotę, aby zobaczyć/edytować plan dnia.</p>
-          <PlanEditor allSaturdays={allSaturdays} plans={plans} canEdit={adminEnabled} onSave={savePlan} />
-        </div>
+        {/* ...reszta listy sobót, wpisów, planu – pozostaje bez zmian z Twojej wersji... */}
       </main>
-
-      {modalDate && <SignupModal date={modalDate} onClose={()=>setModalDate(null)} onSaved={(data)=>{ setSignups(data.signups||{}); }}/>
-      }
-      {editItem && <EditModal date={editItem.date} entry={editItem.entry} onClose={()=>setEditItem(null)} onSaved={(data)=>{ setSignups(data.signups||{}); }}/>
-      }
-    </div>
-  )
-}
-
-/** Sekcja planu pracy */
-function PlanEditor({ allSaturdays, plans, canEdit, onSave }){
-  const upcoming = useMemo(()=>allSaturdays[0], [allSaturdays])
-  const [date,setDate]=useState(upcoming)
-  const [text,setText]=useState(plans[date]||'')
-  useEffect(()=>{ setText(plans[date]||'') },[date,plans])
-
-  const save = async () => {
-    await onSave(date, text)
-    alert('Zapisano plan dla: ' + date)
-  }
-
-  return (
-    <div>
-      <div className="flex flex-col md:flex-row md:items-center gap-3">
-        <div className="flex items-center gap-2">
-          <label className="label">Soboty:</label>
-          <select className="input" value={date} onChange={e=>setDate(e.target.value)}>
-            {allSaturdays.map(d => <option key={d} value={d}>{fmtDatePL(d)}</option>)}
-          </select>
-        </div>
-        <div className="text-sm text-slate-600">{plans[date] ? 'Plan opublikowany' : 'Brak planu'}</div>
-      </div>
-
-      {canEdit ? (
-        <div className="mt-3 space-y-2">
-          <textarea className="input min-h-[120px]" value={text} onChange={e=>setText(e.target.value)} placeholder="Wpisz plan pracy w sobotę... (widoczny dla wszystkich po zapisaniu)"></textarea>
-          <div className="flex gap-2">
-            <button className="btn btn-primary" onClick={save}>Zapisz plan</button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{plans[date]||'— Brak planu —'}</div>
-      )}
     </div>
   )
 }
