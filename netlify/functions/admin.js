@@ -3,7 +3,6 @@ export async function handler(event) {
   const ok = (data) => ({ statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
   const bad = (code, msg) => ({ statusCode: code, body: msg })
 
-  // MUST be set in Netlify env
   const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ''
   const provided = event.headers['x-admin-password'] || event.headers['X-Admin-Password'] || ''
 
