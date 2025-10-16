@@ -16,8 +16,12 @@
 .alert-warning { @apply bg-amber-50 border-amber-200 text-amber-800; }
 .alert-danger { @apply bg-red-50 border-red-200 text-red-700; }
 
-.entry-line { @apply w-full flex items-center gap-2 pr-2 overflow-hidden; }
-.entry-text { @apply text-sm text-slate-700 truncate; }
+.entry-line { @apply w-full flex flex-wrap items-center gap-2 pr-2; }
+.entry-name { @apply text-sm text-slate-800 font-medium; }
 .entry-meta { @apply text-xs text-slate-500; }
-.entry-note { @apply text-xs text-slate-600 truncate; }
+.entry-note { @apply text-sm text-slate-700; }
 .entry-actions { @apply ml-auto flex items-center gap-2 shrink-0; }
+
+.summary { @apply mt-3 flex items-center gap-4 text-sm text-slate-700; }
+.summary strong { @apply text-slate-900; }
+.countdown { @apply inline-flex items-center gap-1 font-semibold; }
