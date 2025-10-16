@@ -7,7 +7,6 @@
   node_bundler = "esbuild"
   external_node_modules = ["jsonwebtoken", "@netlify/blobs"]
 
-# (Optional) Pretty API paths
 [[redirects]]
   from = "/api/login"
   to = "/.netlify/functions/login"
