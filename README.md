@@ -54,3 +54,31 @@ netlify dev
 - Dni generowane są po stronie klienta (wszystkie soboty w ciągu 2 lat od „dziś”). Walidacja daty odbywa się też na serwerze.
 
 Miłego korzystania! ✨
+
+## Tryb administratora (edycja/usuwanie)
+- Ustaw zmienną środowiskową `ADMIN_PASSWORD` w Netlify (Site settings → Environment variables).
+- W aplikacji, nad listą, wpisz hasło w sekcji „Tryb administratora”.
+- Po aktywacji pojawią się przyciski ✏️ (Edytuj) i 🗑 (Usuń) przy każdym wpisie.
+- Edycja/Usuwanie działa przez `PUT` / `DELETE` na `/api/signups` z nagłówkiem `X-Admin-Password`.
+
+
+---
+## Netlify Blobs — konfiguracja
+Jeśli widzisz błąd `MissingBlobsEnvironmentError`, oznacza to, że Blobs nie są włączone/Skonfigurowane dla strony.
+
+### Produkcja (Netlify Dashboard)
+1. Wejdź w **Site settings → Storage & databases → Blobs** i kliknij **Enable** (jeśli dostępne).
+2. Zrób **Deploys → Trigger deploy → Clear cache and deploy site**.
+
+### Lokalnie (netlify dev) — manualna konfiguracja
+Ustaw zmienne środowiskowe (CLI albo `.env`):
+```
+NETLIFY_SITE_ID=<ID_twojej_strony>
+NETLIFY_AUTH_TOKEN=<token Netlify z konta>
+```
+Następnie uruchom:
+```
+netlify dev
+```
+
+> Alternatywnie możesz użyć innych nazw (`SITE_ID`, `BLOBS_TOKEN`) – funkcja je również rozpoznaje.

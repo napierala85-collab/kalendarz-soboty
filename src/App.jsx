@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Lock, UserPlus, Users, LogOut, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, Lock, UserPlus, Users, LogOut, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Pencil, Trash2, Shield } from 'lucide-react'
 
 const API_LOGIN = '/api/login'
 const API_SIGNUPS = '/api/signups'
@@ -205,10 +205,83 @@ function MonthPicker({ year, month, setYear, setMonth, minYear, maxYear }) {
   )
 }
 
+
+function AdminBar({ adminEnabled, onSetAdmin }) {
+  const [val, setVal] = useState('')
+  return (
+    <div className="card flex items-center gap-3">
+      <div className="p-2 rounded-2xl bg-purple-600 text-white"><Shield size={18} /></div>
+      <div className="flex-1">
+        <div className="text-sm text-slate-600">Tryb administratora</div>
+        {adminEnabled ? <div className="text-sm">Aktywny — możesz edytować i usuwać wpisy.</div> : <div className="text-sm">Podaj hasło admina, aby aktywować.</div>}
+      </div>
+      {!adminEnabled && (
+        <form onSubmit={(e)=>{e.preventDefault(); onSetAdmin(val);}} className="flex items-center gap-2">
+          <input className="input" type="password" placeholder="Hasło admina" value={val} onChange={e=>setVal(e.target.value)} />
+          <button className="btn btn-primary">Aktywuj</button>
+        </form>
+      )}
+      {adminEnabled && <div className="badge">ADMIN</div>}
+    </div>
+  )
+}
+
+function EditModal({ date, entry, onClose, onSaved }) {
+  const [name, setName] = useState(entry?.name || '')
+  const [note, setNote] = useState(entry?.note || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const save = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const token = localStorage.getItem('token') || ''
+      const adminPass = localStorage.getItem('adminPass') || ''
+      const res = await fetch(API_SIGNUPS, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+          'X-Admin-Password': adminPass
+        },
+        body: JSON.stringify({ date, ts: entry.ts, name, note })
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const updated = await res.json()
+      onSaved(updated)
+      onClose()
+    } catch (err) { setError(err.message || 'Błąd') }
+    finally { setSaving(false) }
+  }
+  return (
+    <div className="fixed inset-0 bg-black/40 grid place-items-center p-4">
+      <div className="card max-w-md w-full relative">
+        <button className="absolute right-4 top-4 text-slate-500 hover:text-slate-700" onClick={onClose}>✕</button>
+        <h3 className="text-lg font-semibold mb-3">Edytuj wpis ({date})</h3>
+        <form onSubmit={save} className="space-y-3">
+          <div>
+            <label className="label">Imię i nazwisko</label>
+            <input className="input mt-1" value={name} onChange={e=>setName(e.target.value)} required />
+          </div>
+          <div>
+            <label className="label">Notatka</label>
+            <input className="input mt-1" value={note} onChange={e=>setNote(e.target.value)} />
+          </div>
+          <button className="btn btn-primary w-full" disabled={saving}>{saving ? 'Zapisywanie…' : 'Zapisz zmiany'}</button>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(false)
   const [signups, setSignups] = useState({})
   const [modalDate, setModalDate] = useState(null)
+  const [editItem, setEditItem] = useState(null)
+  const [adminEnabled, setAdminEnabled] = useState(!!localStorage.getItem('adminPass'))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -266,6 +339,8 @@ export default function App() {
       <Header onLogout={() => { localStorage.removeItem('token'); setAuthed(false) }} />
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+        <AdminBar adminEnabled={adminEnabled} onSetAdmin={(v)=>{ localStorage.setItem('adminPass', v); setAdminEnabled(true); }} />
+
         <div className="card">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex items-center gap-3 flex-wrap">
@@ -329,6 +404,23 @@ export default function App() {
                         <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
                         <span className="text-sm">{p.name}</span>
                         {p.note && <span className="badge">{p.note}</span>}
+                      {adminEnabled && (
+                        <span className="ml-auto flex items-center gap-2">
+                          <button className="btn" title="Edytuj" onClick={()=>{ setEditItem({date, entry:p}); }}><Pencil size={14} /></button>
+                          <button className="btn" title="Usuń" onClick={async()=>{
+                            const ok = confirm('Usunąć ten wpis?')
+                            if (!ok) return
+                            const token = localStorage.getItem('token') || ''
+                            const adminPass = localStorage.getItem('adminPass') || ''
+                            const res = await fetch(API_SIGNUPS, {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'X-Admin-Password': adminPass },
+                              body: JSON.stringify({ date, ts: p.ts })
+                            })
+                            if (res.ok) { const updated = await res.json(); setSignups(updated.signups || {}); } else { alert(await res.text()) }
+                          }}><Trash2 size={14} /></button>
+                        </span>
+                      )}
                       </li>
                     ))}
                   </ul>
@@ -340,6 +432,23 @@ export default function App() {
       </main>
 
       {modalDate && (
+        <SignupModal
+          date={modalDate}
+          onClose={() => setModalDate(null)}
+          onSaved={(data) => setSignups(data.signups || {})}
+        />
+      )}
+
+      {editItem && (
+        <EditModal
+          date={editItem.date}
+          entry={editItem.entry}
+          onClose={()=>setEditItem(null)}
+          onSaved={(data)=>{ setSignups(data.signups || {}); setEditItem(null); }}
+        />
+      )}
+
+      {false && (
         <SignupModal
           date={modalDate}
           onClose={() => setModalDate(null)}
