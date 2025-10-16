@@ -24,7 +24,7 @@ function withinUntil2030(dateStr) {
   return d >= today && d <= end
 }
 function getCutoffForSaturday(dateStr) {
-  // Upewnij się, że w Netlify masz: TZ=Europe/Warsaw
+  // Make sure Netlify env has TZ=Europe/Warsaw
   const sat = new Date(dateStr + 'T00:00:00')
   const fri = new Date(sat); fri.setDate(fri.getDate() - 1); fri.setHours(11,0,0,0)
   return fri
@@ -61,7 +61,7 @@ export async function handler(event) {
     if (!isSaturday(date)) return bad(400, 'Date must be a Saturday')
     if (!withinUntil2030(date)) return bad(400, 'Date outside allowed range (today → 2030-12-31)')
 
-    // BLOKADA: piątek 11:00
+    // CUTOFF: Friday 11:00 local
     const cutoff = getCutoffForSaturday(date)
     const now = new Date()
     if (now >= cutoff) return bad(403, 'Lista zamknięta: piątek 11:00 przed daną sobotą')
@@ -77,7 +77,7 @@ export async function handler(event) {
     if (!isAdmin(event)) return bad(403, 'Admin password required')
     const payload = JSON.parse(event.body || '{}')
 
-    // Tryb PLANU DNIA
+    // PLAN mode
     if (payload.mode === 'plan') {
       const { date, plan } = payload
       if (!date) return bad(400, 'Missing date')
@@ -87,7 +87,7 @@ export async function handler(event) {
       return ok(raw)
     }
 
-    // Edycja wpisu po ts
+    // Edit entry by ts
     const { date, ts, name, note } = payload
     if (!date || !ts) return bad(400, 'Missing date or ts')
     const list = raw.signups[date] || []
