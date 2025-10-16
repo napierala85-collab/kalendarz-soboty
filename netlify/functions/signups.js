@@ -1,3 +1,4 @@
+
 import jwt from 'jsonwebtoken'
 import { getStore } from '@netlify/blobs'
 
@@ -23,7 +24,7 @@ function withinUntil2030(dateStr) {
   return d >= today && d <= end
 }
 function getCutoffForSaturday(dateStr) {
-  // Ensure TZ=Europe/Warsaw in env for correct local time
+  // Upewnij się, że w Netlify masz: TZ=Europe/Warsaw
   const sat = new Date(dateStr + 'T00:00:00')
   const fri = new Date(sat); fri.setDate(fri.getDate() - 1); fri.setHours(11,0,0,0)
   return fri
@@ -48,7 +49,8 @@ export async function handler(event) {
 
   const store = getStoreSafe()
   let raw = await store.get(KEY, { type: 'json' })
-  if (!raw) raw = { signups: {} }
+  if (!raw) raw = { signups: {}, plans: {} }
+  if (!raw.plans) raw.plans = raw.plans || {}
 
   if (event.httpMethod === 'GET') return ok(raw)
 
@@ -58,6 +60,8 @@ export async function handler(event) {
     if (!/\d{4}-\d{2}-\d{2}/.test(date)) return bad(400, 'Invalid date format')
     if (!isSaturday(date)) return bad(400, 'Date must be a Saturday')
     if (!withinUntil2030(date)) return bad(400, 'Date outside allowed range (today → 2030-12-31)')
+
+    // BLOKADA: piątek 11:00
     const cutoff = getCutoffForSaturday(date)
     const now = new Date()
     if (now >= cutoff) return bad(403, 'Lista zamknięta: piątek 11:00 przed daną sobotą')
@@ -71,7 +75,20 @@ export async function handler(event) {
 
   if (event.httpMethod === 'PUT' || event.httpMethod === 'PATCH') {
     if (!isAdmin(event)) return bad(403, 'Admin password required')
-    const { date, ts, name, note } = JSON.parse(event.body || '{}')
+    const payload = JSON.parse(event.body || '{}')
+
+    // Tryb PLANU DNIA
+    if (payload.mode === 'plan') {
+      const { date, plan } = payload
+      if (!date) return bad(400, 'Missing date')
+      if (!/\d{4}-\d{2}-\d{2}/.test(date)) return bad(400, 'Invalid date format')
+      raw.plans[date] = String(plan || '')
+      await store.set(KEY, JSON.stringify(raw))
+      return ok(raw)
+    }
+
+    // Edycja wpisu po ts
+    const { date, ts, name, note } = payload
     if (!date || !ts) return bad(400, 'Missing date or ts')
     const list = raw.signups[date] || []
     const idx = list.findIndex(x => String(x.ts) === String(ts))
