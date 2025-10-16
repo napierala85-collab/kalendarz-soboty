@@ -54,6 +54,7 @@ export async function handler(event) {
   if (event.httpMethod === 'GET') return ok(raw)
 
   if (event.httpMethod === 'POST') {
+    if (!isAdmin(event)) return bad(403, 'Only admin can add signups')
     const { date, name, note } = JSON.parse(event.body || '{}')
     if (!date || !name) return bad(400, 'Missing fields')
     if (!/\d{4}-\d{2}-\d{2}/.test(date)) return bad(400, 'Invalid date format')

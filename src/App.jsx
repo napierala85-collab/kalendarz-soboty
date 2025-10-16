@@ -1,6 +1,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { Lock, UserPlus, LogOut, AlertCircle, ChevronLeft, ChevronRight, Pencil, Trash2, Shield, Clock, Info } from 'lucide-react'
+import { Lock, LogOut, AlertCircle, ChevronLeft, ChevronRight, Pencil, Trash2, Shield, Clock, Info, PlusCircle } from 'lucide-react'
 
 const API_LOGIN = '/api/login'
 const API_SIGNUPS = '/api/signups'
@@ -62,7 +62,7 @@ function AdminBar({ adminEnabled, setAdminEnabled, setAdminError }){
       <div className="p-2 rounded-2xl bg-purple-600 text-white"><Shield size={18}/></div>
       <div className="flex-1">
         <div className="text-sm text-slate-600">Tryb administratora</div>
-        {adminEnabled ? <div className="text-sm">Aktywny — możesz edytować/usuwać wpisy oraz plan soboty.</div> : <div className="text-sm">Podaj hasło admina, aby aktywować.</div>}
+        {adminEnabled ? <div className="text-sm">Aktywny — dodawanie/edycja/usuwanie tylko przez admina.</div> : <div className="text-sm">Podaj hasło admina, aby aktywować.</div>}
       </div>
       {!adminEnabled ? (
         <form onSubmit={tryEnable} className="flex items-center gap-2">
@@ -102,7 +102,7 @@ function PasswordGate({ onLogin }){
   )
 }
 
-function SignupModal({ date, onClose, onSaved }){
+function SignupModal({ date, onClose, onSaved, adminEnabled }){
   const [name,setName]=useState('')
   const [note,setNote]=useState('')
   const [saving,setSaving]=useState(false)
@@ -110,7 +110,8 @@ function SignupModal({ date, onClose, onSaved }){
   const locked = isLocked(date, new Date())
   const save=async(e)=>{ e.preventDefault(); setSaving(true); setError(''); try{
     const token=localStorage.getItem('token')||''
-    const res=await fetch(API_SIGNUPS,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({date,name,note})})
+    const adminPass=localStorage.getItem('adminPass')||''
+    const res=await fetch(API_SIGNUPS,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'X-Admin-Password':adminPass},body:JSON.stringify({date,name,note})})
     if(!res.ok) throw new Error(await res.text())
     const updated=await res.json(); onSaved(updated); onClose()
   }catch(err){ setError(err.message||'Błąd zapisu.') }finally{ setSaving(false) } }
@@ -118,12 +119,13 @@ function SignupModal({ date, onClose, onSaved }){
     <div className="fixed inset-0 bg-black/40 grid place-items-center p-4">
       <div className="card max-w-md w-full relative">
         <button className="absolute right-4 top-4 text-slate-500 hover:text-slate-700" onClick={onClose}>✕</button>
-        <div className="flex items-center gap-3 mb-3"><div className="p-2 rounded-2xl bg-blue-600 text-white"><UserPlus size={18}/></div><h3 className="text-lg font-semibold">Zapis na {fmtDatePL(date)}</h3></div>
+        <div className="flex items-center gap-3 mb-3"><div className="p-2 rounded-2xl bg-blue-600 text-white"><PlusCircle size={18}/></div><h3 className="text-lg font-semibold">Dodaj osobę na {fmtDatePL(date)}</h3></div>
         <div className={`alert-banner ${locked ? 'alert-danger' : 'alert-warning'}`}><Clock size={16}/><span>Lista zamykana: {cutoffForSaturdayLocal(date).toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'})}</span></div>
+        {!adminEnabled ? <p className="text-sm text-red-600 mt-2">Dodawanie dostępne tylko dla administratora.</p> : null}
         <form onSubmit={save} className="space-y-3 mt-3">
           <div><label className="label">Imię i nazwisko</label><input className="input mt-1" value={name} onChange={e=>setName(e.target.value)} required/></div>
           <div><label className="label">Notatka (opcjonalnie)</label><input className="input mt-1" value={note} onChange={e=>setNote(e.target.value)} placeholder="np. zmiana poranna"/></div>
-          <button className="btn btn-primary w-full" disabled={saving || locked}>{saving ? 'Zapisywanie…' : (locked ? 'Lista zamknięta' : 'Zapisz mnie')}</button>
+          <button className="btn btn-primary w-full" disabled={saving || locked || !adminEnabled}>{saving ? 'Zapisywanie…' : (locked ? 'Lista zamknięta' : 'Dodaj osobę')}</button>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </form>
       </div>
@@ -272,7 +274,6 @@ export default function App(){
           </div>
         </div>
 
-        {/* KARTY SOBÓT */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {monthSaturdays.length===0 ? (
             <div className="col-span-full text-sm text-slate-500">Brak sobót w tym miesiącu.</div>
@@ -291,9 +292,13 @@ export default function App(){
                       <Clock size={18}/><span>Lista zamykana: {cutoff.toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'})}</span>
                     </div>
                   </div>
-                  <button className="btn btn-primary" onClick={()=>setModalDate(date)} disabled={locked}>
-                    <UserPlus size={16}/> {locked?'Lista zamknięta':'Zapisz się'}
-                  </button>
+                  {adminEnabled ? (
+                    <button className="btn btn-primary" onClick={()=>setModalDate(date)} disabled={locked}>
+                      <PlusCircle size={16}/> {locked?'Lista zamknięta':'Dodaj osobę'}
+                    </button>
+                  ) : (
+                    <div className="text-xs text-slate-500 mt-2">Zapisy dodaje administrator.</div>
+                  )}
                 </div>
                 <div className="summary">
                   <span><strong>Chętni:</strong> {people.length}</span>
@@ -330,7 +335,6 @@ export default function App(){
           })}
         </div>
 
-        {/* PLAN NA DOLE */}
         <div className="card">
           <div className="text-lg font-semibold mb-2 flex items-center gap-2"><Info size={18}/> Plan pracy w sobotę</div>
           <p className="text-sm text-slate-600 mb-3">Wybierz sobotę, aby zobaczyć/edytować plan dnia.</p>
@@ -338,7 +342,7 @@ export default function App(){
         </div>
       </main>
 
-      {modalDate && <SignupModal date={modalDate} onClose={()=>setModalDate(null)} onSaved={(data)=>{ setSignups(data.signups||{}); }}/>
+      {modalDate && <SignupModal date={modalDate} adminEnabled={adminEnabled} onClose={()=>setModalDate(null)} onSaved={(data)=>{ setSignups(data.signups||{}); }}/>
       }
       {editItem && <EditModal date={editItem.date} entry={editItem.entry} onClose={()=>setEditItem(null)} onSaved={(data)=>{ setSignups(data.signups||{}); }}/>
       }
