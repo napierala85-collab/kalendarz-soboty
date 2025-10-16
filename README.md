@@ -1,7 +1,5 @@
 # Kalendarz sobót — Netlify
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start)
-
 Gotowy projekt do wrzucenia na Netlify. Zawiera:
 - Frontend (Vite + React + Tailwind + lucide-react)
 - Netlify Functions: `login` (sprawdza hasło) i `signups` (pobieranie/dodawanie zapisów)

@@ -29,11 +29,10 @@ function isSaturday(dateStr) {
   return d.getDay() === 6
 }
 
-function withinTwoYears(dateStr) {
+function withinUntil2030(dateStr) {
   const today = new Date()
-  const end = new Date()
-  end.setFullYear(end.getFullYear() + 2)
   const d = new Date(dateStr + 'T00:00:00')
+  const end = new Date(2030, 11, 31, 0, 0, 0, 0) // 2030-12-31
   return d >= today && d <= end
 }
 
@@ -55,7 +54,7 @@ export async function handler(event) {
     if (!date || !name) return bad(400, 'Missing fields')
     if (!/\d{4}-\d{2}-\d{2}/.test(date)) return bad(400, 'Invalid date format')
     if (!isSaturday(date)) return bad(400, 'Date must be a Saturday')
-    if (!withinTwoYears(date)) return bad(400, 'Date outside allowed range')
+    if (!withinUntil2030(date)) return bad(400, 'Date outside allowed range (today → 2030-12-31)')
 
     const list = raw.signups[date] || []
     list.push({ name, note: note?.trim() || '', ts: Date.now() })

@@ -1,39 +1,43 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Lock, UserPlus, Users, LogOut, CheckCircle2, AlertCircle } from 'lucide-react'
+import { CalendarDays, Lock, UserPlus, Users, LogOut, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const API_LOGIN = '/api/login'
 const API_SIGNUPS = '/api/signups'
 
-function formatDateISO(d) {
-  return d.toISOString().slice(0,10)
+// Local, timezone-safe YYYY-MM-DD formatter (no UTC conversion)
+function ymdLocal(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+function startOfDayLocal(d) {
+  const x = new Date(d)
+  x.setHours(0,0,0,0)
+  return x
 }
 function addDays(d, n) {
   const x = new Date(d)
   x.setDate(x.getDate() + n)
   return x
 }
-function startOfDay(d) {
-  const x = new Date(d)
-  x.setHours(0,0,0,0)
-  return x
-}
 function isSaturday(d) {
   return new Date(d).getDay() === 6
 }
 
-function generateSaturdaysTwoYears() {
-  const today = startOfDay(new Date())
-  const end = startOfDay(new Date(today))
-  end.setFullYear(end.getFullYear() + 2)
-  // go to next Saturday (or today if Saturday)
-  let cur = startOfDay(new Date(today))
+// All Saturdays from today to 2030-12-31
+function allSaturdaysTo2030() {
+  const today = startOfDayLocal(new Date())
+  const end = new Date(2030, 11, 31, 0, 0, 0, 0) // Dec is 11
+  // find first upcoming Saturday (or today if Saturday)
+  let cur = new Date(today)
   while (cur.getDay() !== 6) cur = addDays(cur, 1)
-  const dates = []
-  while (cur < end) {
-    dates.push(formatDateISO(cur))
+  const out = []
+  while (cur <= end) {
+    out.push(ymdLocal(cur))
     cur = addDays(cur, 7)
   }
-  return dates
+  return out
 }
 
 function Header({ onLogout }) {
@@ -134,7 +138,10 @@ function SignupModal({ date, onClose, onSaved }) {
         },
         body: JSON.stringify({ date, name, note })
       })
-      if (!res.ok) throw new Error('Nie udało się zapisać.')
+      if (!res.ok) {
+        const txt = await res.text()
+        throw new Error(txt || 'Nie udało się zapisać.')
+      }
       const updated = await res.json()
       onSaved(updated)
       onClose()
@@ -175,6 +182,29 @@ function SignupModal({ date, onClose, onSaved }) {
   )
 }
 
+function MonthPicker({ year, month, setYear, setMonth, minYear, maxYear }) {
+  const months = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień']
+
+  const prev = () => {
+    if (month === 0) {
+      if (year > minYear) { setYear(year-1); setMonth(11) }
+    } else { setMonth(month-1) }
+  }
+  const next = () => {
+    if (month === 11) {
+      if (year < maxYear) { setYear(year+1); setMonth(0) }
+    } else { setMonth(month+1) }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <button className="btn" onClick={prev} aria-label="Poprzedni miesiąc"><ChevronLeft size={16} /> Poprzedni</button>
+      <div className="text-lg font-semibold">{months[month]} {year}</div>
+      <button className="btn" onClick={next} aria-label="Następny miesiąc">Następny <ChevronRight size={16} /></button>
+    </div>
+  )
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(false)
   const [signups, setSignups] = useState({})
@@ -182,7 +212,19 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const saturdays = useMemo(() => generateSaturdaysTwoYears(), [])
+  const allSaturdays = useMemo(() => allSaturdaysTo2030(), [])
+  const years = useMemo(() => {
+    const ys = new Set(allSaturdays.map(d => Number(d.slice(0,4))))
+    return Array.from(ys).sort((a,b)=>a-b)
+  }, [allSaturdays])
+
+  const today = new Date()
+  const [year, setYear] = useState(today.getFullYear())
+  const [month, setMonth] = useState(today.getMonth())
+
+  const monthSaturdays = useMemo(() => {
+    return allSaturdays.filter(d => Number(d.slice(0,4)) === year && Number(d.slice(5,7)) === (month+1))
+  }, [allSaturdays, year, month])
 
   const load = async () => {
     setLoading(true)
@@ -205,7 +247,6 @@ export default function App() {
   }
 
   useEffect(() => {
-    // try auto-login (if token exists)
     const token = localStorage.getItem('token')
     if (token) {
       setAuthed(true)
@@ -217,21 +258,22 @@ export default function App() {
     return <PasswordGate onLogin={() => { setAuthed(true); load() }} />
   }
 
-  const nowYear = new Date().getFullYear()
+  const minYear = years[0] || today.getFullYear()
+  const maxYear = 2030
 
   return (
     <div className="min-h-screen">
       <Header onLogout={() => { localStorage.removeItem('token'); setAuthed(false) }} />
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        <div className="card mb-6">
+      <main className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+        <div className="card">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="badge">
                 <Users size={14} className="mr-1" /> Zapisy współdzielone
               </div>
               <div className="badge">
-                <CalendarDays size={14} className="mr-1" /> {nowYear} – {nowYear + 2}
+                <CalendarDays size={14} className="mr-1" /> do 2030
               </div>
             </div>
             <div className="text-sm text-slate-600 flex items-center gap-2">
@@ -241,11 +283,31 @@ export default function App() {
           </div>
         </div>
 
+        <div className="card">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} minYear={minYear} maxYear={maxYear} />
+            <div className="flex items-center gap-2">
+              <label className="label">Rok:</label>
+              <select className="input" value={year} onChange={e=>setYear(Number(e.target.value))}>
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <label className="label ml-3">Miesiąc:</label>
+              <select className="input" value={month} onChange={e=>setMonth(Number(e.target.value))}>
+                {['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'].map((m,i)=>(
+                  <option key={m} value={i}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         {loading && <p>Ładowanie…</p>}
         {error && <p className="text-red-600">{error}</p>}
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {saturdays.map(date => {
+          {monthSaturdays.length === 0 ? (
+            <div className="col-span-full text-sm text-slate-500">Brak sobót w tym miesiącu.</div>
+          ) : monthSaturdays.map(date => {
             const people = signups[date] || []
             return (
               <div key={date} className="card">
