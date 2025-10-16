@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,12 +6,18 @@
 .btn { @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-2xl shadow-soft border border-slate-200 bg-white hover:shadow transition; }
 .btn-primary { @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-700; }
 .icon-btn { @apply inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white hover:shadow transition shrink-0; }
-.card { @apply bg-white rounded-3xl p-4 md:p-6 shadow-soft border border-slate-100; }
+.icon-btn-lg { @apply inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white hover:shadow transition shrink-0; }
+.card { @apply bg-white rounded-3xl p-5 md:p-7 shadow-soft border border-slate-100; }
 .input { @apply w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500; }
 .label { @apply text-sm text-slate-600; }
 .badge { @apply inline-flex items-center rounded-full border border-slate-200 px-2.5 py-1 text-xs bg-slate-50; }
 
-/* Highlighted cutoff info */
-.alert-badge { @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-sm font-medium; }
+.alert-banner { @apply mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-base font-semibold; }
 .alert-warning { @apply bg-amber-50 border-amber-200 text-amber-800; }
 .alert-danger { @apply bg-red-50 border-red-200 text-red-700; }
+
+.entry-line { @apply w-full flex items-center gap-2 pr-2 overflow-hidden; }
+.entry-text { @apply text-sm text-slate-700 truncate; }
+.entry-meta { @apply text-xs text-slate-500; }
+.entry-note { @apply text-xs text-slate-600 truncate; }
+.entry-actions { @apply ml-auto flex items-center gap-2 shrink-0; }
