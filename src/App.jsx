@@ -12,7 +12,7 @@ function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x }
 function fmtDatePL(s){ return `${s.slice(8,10)}-${s.slice(5,7)}-${s.slice(0,4)}` }
 function allSaturdaysTo2030(){ const today=startOfDayLocal(new Date()); const end=new Date(2030,11,31,0,0,0,0); let cur=new Date(today); while(cur.getDay()!==6) cur=addDays(cur,1); const out=[]; while(cur<=end){ out.push(ymdLocal(cur)); cur=addDays(cur,7) } return out }
 function formatTs(ts){ try{ return new Date(ts).toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'}) }catch{ return '' } }
-function cutoffForSaturdayLocal(dateStr){ const d=new Date(dateStr+'T00:00:00'); const fri=new Date(d); fri.setDate(fri.getDate()-1); fri.setHours(11,0,0,0); return fri }
+function cutoffForSaturdayLocal(dateStr){ const d=new Date(dateStr+'T00:00:00'); const fri=new Date(d); fri.setDate(fri.getDate()-1); fri.setHours(15,0,0,0); return fri }
 function isLocked(dateStr, now){ return now >= cutoffForSaturdayLocal(dateStr) }
 function fmtCountdown(ms){ if(ms<=0) return 'Zamknięte'; const s=Math.floor(ms/1000); const d=Math.floor(s/86400); const h=Math.floor((s%86400)/3600); const m=Math.floor((s%3600)/60); const pad=n=>String(n).padStart(2,'0'); return d>0?`${d} d ${pad(h)} h ${pad(m)} m`:`${h} h ${pad(m)} m` }
 
@@ -107,7 +107,6 @@ function SignupModal({ date, onClose, onSaved, adminEnabled }){
   const [note,setNote]=useState('')
   const [saving,setSaving]=useState(false)
   const [error,setError]=useState('')
-  const locked = isLocked(date, new Date())
   const save=async(e)=>{ e.preventDefault(); setSaving(true); setError(''); try{
     const token=localStorage.getItem('token')||''
     const adminPass=localStorage.getItem('adminPass')||''
@@ -120,12 +119,12 @@ function SignupModal({ date, onClose, onSaved, adminEnabled }){
       <div className="card max-w-md w-full relative">
         <button className="absolute right-4 top-4 text-slate-500 hover:text-slate-700" onClick={onClose}>✕</button>
         <div className="flex items-center gap-3 mb-3"><div className="p-2 rounded-2xl bg-blue-600 text-white"><PlusCircle size={18}/></div><h3 className="text-lg font-semibold">Dodaj osobę na {fmtDatePL(date)}</h3></div>
-        <div className={`alert-banner ${locked ? 'alert-danger' : 'alert-warning'}`}><Clock size={16}/><span>Lista zamykana: {cutoffForSaturdayLocal(date).toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'})}</span></div>
+        <div className="alert-banner alert-warning"><Clock size={16}/><span>Poza standardowym czasem zapisów — dostępne dla admina.</span></div>
         {!adminEnabled ? <p className="text-sm text-red-600 mt-2">Dodawanie dostępne tylko dla administratora.</p> : null}
         <form onSubmit={save} className="space-y-3 mt-3">
           <div><label className="label">Imię i nazwisko</label><input className="input mt-1" value={name} onChange={e=>setName(e.target.value)} required/></div>
           <div><label className="label">Notatka (opcjonalnie)</label><input className="input mt-1" value={note} onChange={e=>setNote(e.target.value)} placeholder="np. zmiana poranna"/></div>
-          <button className="btn btn-primary w-full" disabled={saving || locked || !adminEnabled}>{saving ? 'Zapisywanie…' : (locked ? 'Lista zamknięta' : 'Dodaj osobę')}</button>
+          <button className="btn btn-primary w-full" disabled={saving || !adminEnabled}>{saving ? 'Zapisywanie…' : 'Dodaj osobę'}</button>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </form>
       </div>
@@ -274,6 +273,7 @@ export default function App(){
           </div>
         </div>
 
+        {/* Cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {monthSaturdays.length===0 ? (
             <div className="col-span-full text-sm text-slate-500">Brak sobót w tym miesiącu.</div>
@@ -293,8 +293,8 @@ export default function App(){
                     </div>
                   </div>
                   {adminEnabled ? (
-                    <button className="btn btn-primary" onClick={()=>setModalDate(date)} disabled={locked}>
-                      <PlusCircle size={16}/> {locked?'Lista zamknięta':'Dodaj osobę'}
+                    <button className="btn btn-primary" onClick={()=>setModalDate(date)}>
+                      <PlusCircle size={16}/> Dodaj osobę
                     </button>
                   ) : (
                     <div className="text-xs text-slate-500 mt-2">Zapisy dodaje administrator.</div>
@@ -335,10 +335,11 @@ export default function App(){
           })}
         </div>
 
+        {/* Plan section */}
         <div className="card">
           <div className="text-lg font-semibold mb-2 flex items-center gap-2"><Info size={18}/> Plan pracy w sobotę</div>
           <p className="text-sm text-slate-600 mb-3">Wybierz sobotę, aby zobaczyć/edytować plan dnia.</p>
-          <PlanEditor allSaturdays={allSaturdays} plans={plans} canEdit={adminEnabled} onSave={savePlan} />
+          <PlanEditor allSaturdays={allSaturdays} plans={plans} canEdit={adminEnabled} onSave={(...args)=>{return (async()=>{await savePlan(...args)})()}} />
         </div>
       </main>
 
