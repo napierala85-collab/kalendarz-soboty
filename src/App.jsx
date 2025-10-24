@@ -273,13 +273,11 @@ export default function App(){
           </div>
         </div>
 
-        {/* Cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {monthSaturdays.length===0 ? (
             <div className="col-span-full text-sm text-slate-500">Brak sobót w tym miesiącu.</div>
           ) : monthSaturdays.map(date=>{
             const people = signups[date] || []
-            const locked = isLocked(date, now)
             const cutoff = cutoffForSaturdayLocal(date)
             const countdown = fmtCountdown(cutoff - now)
             return (
@@ -288,17 +286,13 @@ export default function App(){
                   <div>
                     <div className="text-sm text-slate-500">Sobota</div>
                     <div className="text-lg font-semibold">{fmtDatePL(date)}</div>
-                    <div className={`alert-banner ${locked ? 'alert-danger' : 'alert-warning'}`}>
+                    <div className="alert-banner alert-warning">
                       <Clock size={18}/><span>Lista zamykana: {cutoff.toLocaleString('pl-PL',{dateStyle:'medium',timeStyle:'short'})}</span>
                     </div>
                   </div>
-                  {adminEnabled ? (
-                    <button className="btn btn-primary" onClick={()=>setModalDate(date)}>
-                      <PlusCircle size={16}/> Dodaj osobę
-                    </button>
-                  ) : (
-                    <div className="text-xs text-slate-500 mt-2">Zapisy dodaje administrator.</div>
-                  )}
+                  <button className="btn btn-primary" onClick={()=>setModalDate(date)}>
+                    <PlusCircle size={16}/> Dodaj osobę
+                  </button>
                 </div>
                 <div className="summary">
                   <span><strong>Chętni:</strong> {people.length}</span>
@@ -335,11 +329,10 @@ export default function App(){
           })}
         </div>
 
-        {/* Plan section */}
         <div className="card">
           <div className="text-lg font-semibold mb-2 flex items-center gap-2"><Info size={18}/> Plan pracy w sobotę</div>
           <p className="text-sm text-slate-600 mb-3">Wybierz sobotę, aby zobaczyć/edytować plan dnia.</p>
-          <PlanEditor allSaturdays={allSaturdays} plans={plans} canEdit={adminEnabled} onSave={(...args)=>{return (async()=>{await savePlan(...args)})()}} />
+          <PlanEditor allSaturdays={allSaturdays} plans={plans} canEdit={adminEnabled} onSave={savePlan} />
         </div>
       </main>
 

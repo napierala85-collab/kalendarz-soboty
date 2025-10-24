@@ -24,11 +24,10 @@ function withinUntil2030(dateStr) {
   return d >= today && d <= end
 }
 function getCutoffForSaturday(dateStr) {
-  // TZ=Europe/Warsaw recommended in env for correct local time.
   const sat = new Date(dateStr + 'T00:00:00')
   const fri = new Date(sat)
   fri.setDate(fri.getDate() - 1)
-  // Friday 15:00 cutoff
+  // Friday 15:00 local time
   fri.setHours(15, 0, 0, 0)
   return fri
 }
@@ -59,20 +58,15 @@ export async function handler(event) {
 
   if (event.httpMethod === 'POST') {
     const admin = isAdmin(event)
-    if (!admin) return bad(403, 'Only admin can add signups') // still admin-only policy
+    if (!admin) return bad(403, 'Only admin can add signups')
 
     const { date, name, note } = JSON.parse(event.body || '{}')
     if (!date || !name) return bad(400, 'Missing fields')
-    if (!/\\d{4}-\\d{2}-\\d{2}/.test(date)) return bad(400, 'Invalid date format')
+    if (!/\d{4}-\d{2}-\d{2}/.test(date)) return bad(400, 'Invalid date format')
     if (!isSaturday(date)) return bad(400, 'Date must be a Saturday')
     if (!withinUntil2030(date)) return bad(400, 'Date outside allowed range (today → 2030-12-31)')
 
-    const cutoff = getCutoffForSaturday(date)
-    const now = new Date()
-    // NEW: admin override — after cutoff only admin can add (and we are admin here)
-    // so no block for admin; (if you want warning message, could add, but we allow silently)
-    // if (!admin && now >= cutoff) return bad(403, 'Lista zamknięta: piątek 15:00')
-
+    // Admin override: NO cutoff check for admin
     const list = raw.signups[date] || []
     list.push({ name, note: (note||'').trim(), ts: Date.now() })
     raw.signups[date] = list
@@ -87,7 +81,7 @@ export async function handler(event) {
     if (payload.mode === 'plan') {
       const { date, plan } = payload
       if (!date) return bad(400, 'Missing date')
-      if (!/\\d{4}-\\d{2}-\\d{2}/.test(date)) return bad(400, 'Invalid date format')
+      if (!/\d{4}-\d{2}-\d{2}/.test(date)) return bad(400, 'Invalid date format')
       raw.plans[date] = String(plan || '')
       await store.set(KEY, JSON.stringify(raw))
       return ok(raw)
